@@ -97,6 +97,7 @@ impl STL {
         })
     }
 
+#[pyo3(signature = (inner_iter=None, outer_iter=None))]
     fn fit(&self, inner_iter: Option<usize>, outer_iter: Option<usize>) -> PyResult<PySTLResult> {
         let mut params = StlParams::new();
 

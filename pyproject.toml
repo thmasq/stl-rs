@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "stl_rs"
-version = "0.1.1"
+version = "0.1.2"
 description = "Fast STL decomposition implemented in Rust"
 authors = [{name = "Thomas Q", email = "thomasqsa@gmail.com"}]
 keywords = ["time-series", "stl", "decomposition", "statistics"]
