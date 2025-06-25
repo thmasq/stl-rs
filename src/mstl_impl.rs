@@ -6,13 +6,13 @@ use super::{Error, StlParams};
 
 #[allow(clippy::type_complexity)]
 pub fn mstl(
-    x: &[f32],
+    x: &[f64],
     seas_ids: &[usize],
     iterate: usize,
-    lambda: Option<f32>,
+    lambda: Option<f64>,
     swin: &Option<Vec<usize>>,
     stl_params: &StlParams,
-) -> Result<(Vec<f32>, Vec<f32>, Vec<Vec<f32>>), Error> {
+) -> Result<(Vec<f64>, Vec<f64>, Vec<Vec<f64>>), Error> {
     let k = x.len();
 
     // keep track of indices instead of sorting seas_ids
@@ -81,7 +81,7 @@ pub fn mstl(
     Ok((trend, remainder, seasonality))
 }
 
-fn box_cox(y: &[f32], lambda: f32) -> Vec<f32> {
+fn box_cox(y: &[f64], lambda: f64) -> Vec<f64> {
     if lambda != 0.0 {
         y.iter()
             .map(|yi| (yi.powf(lambda) - 1.0) / lambda)

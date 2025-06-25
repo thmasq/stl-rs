@@ -110,7 +110,7 @@ impl StlParams {
     }
 
     /// Decomposes a time series.
-    pub fn fit(&self, series: &[f32], period: usize) -> Result<StlResult, Error> {
+    pub fn fit(&self, series: &[f64], period: usize) -> Result<StlResult, Error> {
         let y = series;
         let np = period;
         let n = y.len();
@@ -121,7 +121,7 @@ impl StlParams {
             ));
         }
 
-        let ns = self.ns.unwrap_or(np);
+        let ns = self.ns.unwrap_or(7);
 
         let isdeg = self.isdeg;
         let itdeg = self.itdeg;
@@ -131,14 +131,19 @@ impl StlParams {
         let mut trend = vec![0.0; n];
 
         let ildeg = self.ildeg.unwrap_or(itdeg);
+
         let mut newns = ns.max(3);
         if newns % 2 == 0 {
             newns += 1;
         }
 
         let newnp = np.max(2);
-        let mut nt = ((1.5 * newnp as f32) / (1.0 - 1.5 / newns as f32)).ceil() as usize;
-        nt = self.nt.unwrap_or(nt);
+
+        let mut nt = if let Some(trend_len) = self.nt {
+            trend_len
+        } else {
+            ((1.5 * newnp as f64) / (1.0 - 1.5 / newns as f64)).ceil() as usize
+        };
         nt = nt.max(3);
         if nt % 2 == 0 {
             nt += 1;
@@ -149,14 +154,18 @@ impl StlParams {
             nl += 1;
         }
 
-        let ni = self.ni.unwrap_or(if self.robust { 1 } else { 2 });
+        let ni = self.ni.unwrap_or(if self.robust { 2 } else { 5 });
         let no = self.no.unwrap_or(if self.robust { 15 } else { 0 });
 
         let nsjump = self
             .nsjump
-            .unwrap_or(((newns as f32) / 10.0).ceil() as usize);
-        let ntjump = self.ntjump.unwrap_or(((nt as f32) / 10.0).ceil() as usize);
-        let nljump = self.nljump.unwrap_or(((nl as f32) / 10.0).ceil() as usize);
+            .unwrap_or(((newns as f64) / 10.0).ceil().max(1.0) as usize);
+        let ntjump = self
+            .ntjump
+            .unwrap_or(((nt as f64) / 10.0).ceil().max(1.0) as usize);
+        let nljump = self
+            .nljump
+            .unwrap_or(((nl as f64) / 10.0).ceil().max(1.0) as usize);
 
         if newns < 3 {
             return Err(Error::Parameter(

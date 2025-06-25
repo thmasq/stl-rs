@@ -5,7 +5,7 @@ use super::{Error, MstlResult, StlParams};
 #[derive(Clone, Debug)]
 pub struct MstlParams {
     iterate: usize,
-    lambda: Option<f32>,
+    lambda: Option<f64>,
     swin: Option<Vec<usize>>,
     stl_params: StlParams,
 }
@@ -28,7 +28,7 @@ impl MstlParams {
     }
 
     /// Sets lambda for Box-Cox transformation.
-    pub fn lambda(&mut self, lambda: f32) -> &mut Self {
+    pub fn lambda(&mut self, lambda: f64) -> &mut Self {
         self.lambda = Some(lambda);
         self
     }
@@ -46,7 +46,7 @@ impl MstlParams {
     }
 
     /// Decomposes a time series.
-    pub fn fit(&self, series: &[f32], periods: &[usize]) -> Result<MstlResult, Error> {
+    pub fn fit(&self, series: &[f64], periods: &[usize]) -> Result<MstlResult, Error> {
         // return error to be consistent with stl
         // and ensure seasonal is always same length as periods
         if periods.iter().any(|&v| v < 2) {

@@ -17,7 +17,7 @@ pub use stl::{Stl, StlParams, StlResult};
 
 #[pyclass]
 pub struct STL {
-    data: Vec<f32>,
+    data: Vec<f64>,
     period: usize,
     seasonal: Option<usize>,
     trend: Option<usize>,
@@ -40,7 +40,7 @@ impl STL {
         endog, 
         *, 
         period=None, 
-        seasonal=None, 
+        seasonal=7,
         trend=None, 
         low_pass=None, 
         seasonal_deg=1, 
@@ -52,9 +52,9 @@ impl STL {
         low_pass_jump=1
     ))]
     fn new(
-        endog: Vec<f32>,
+        endog: Vec<f64>,
         period: Option<usize>,
-        seasonal: Option<usize>,
+        seasonal: usize,
         trend: Option<usize>,
         low_pass: Option<usize>,
         seasonal_deg: i32,
@@ -82,7 +82,7 @@ impl STL {
         Ok(Self {
             data: endog,
             period,
-            seasonal,
+            seasonal: Some(seasonal),
             trend,
             low_pass,
             seasonal_deg,
@@ -97,26 +97,30 @@ impl STL {
         })
     }
 
-#[pyo3(signature = (inner_iter=None, outer_iter=None))]
+    #[pyo3(signature = (inner_iter=None, outer_iter=None))]
     fn fit(&self, inner_iter: Option<usize>, outer_iter: Option<usize>) -> PyResult<PySTLResult> {
         let mut params = StlParams::new();
 
-        // Set seasonal length (default is period if not specified)
-        let seasonal_length = self.seasonal.unwrap_or(self.period);
+        // Set seasonal length (use provided value, not period default)
+        let seasonal_length = self.seasonal.unwrap();
         params.seasonal_length(seasonal_length);
 
         // Set trend length with statsmodels default calculation
         if let Some(trend) = self.trend {
             params.trend_length(trend);
         } else {
-            // Default trend calculation from statsmodels
-            let seasonal_len = if seasonal_length % 2 == 0 { seasonal_length + 1 } else { seasonal_length };
-            let trend_len = ((1.5 * self.period as f32) / (1.0 - 1.5 / seasonal_len as f32)).ceil() as usize;
+            let seasonal_len = if seasonal_length % 2 == 0 { 
+                seasonal_length + 1 
+            } else { 
+                seasonal_length 
+            };
+            
+            let trend_len = ((1.5 * self.period as f64) / (1.0 - 1.5 / seasonal_len as f64)).ceil() as usize;
             let trend_len = if trend_len % 2 == 0 { trend_len + 1 } else { trend_len };
             params.trend_length(trend_len.max(3));
         }
 
-        // Set low pass length (default is smallest odd number > period)
+        // Set low pass length (default is smallest odd number >= period)
         if let Some(low_pass) = self.low_pass {
             params.low_pass_length(low_pass);
         } else {
@@ -129,23 +133,19 @@ impl STL {
         params.trend_degree(self.trend_deg);
         params.low_pass_degree(self.low_pass_deg);
 
-        // Set jumps
-        if let Some(sj) = self.seasonal_jump {
-            params.seasonal_jump(sj);
-        }
-        if let Some(tj) = self.trend_jump {
-            params.trend_jump(tj);
-        }
-        if let Some(lj) = self.low_pass_jump {
-            params.low_pass_jump(lj);
-        }
+        params.seasonal_jump(self.seasonal_jump.unwrap_or(1));
+        params.trend_jump(self.trend_jump.unwrap_or(1));
+        params.low_pass_jump(self.low_pass_jump.unwrap_or(1));
 
         // Set robustness
         params.robust(self.robust);
 
-        // Set iterations with statsmodels defaults
-        let inner_loops = inner_iter.or(self.inner_loops).unwrap_or(if self.robust { 2 } else { 5 });
-        let outer_loops = outer_iter.or(self.outer_loops).unwrap_or(if self.robust { 15 } else { 0 });
+        let inner_loops = inner_iter.or(self.inner_loops).unwrap_or(
+            if self.robust { 2 } else { 5 }
+        );
+        let outer_loops = outer_iter.or(self.outer_loops).unwrap_or(
+            if self.robust { 15 } else { 0 }
+        );
         
         params.inner_loops(inner_loops);
         params.outer_loops(outer_loops);
@@ -163,6 +163,11 @@ impl STL {
     fn nobs(&self) -> usize {
         self.data.len()
     }
+
+    #[getter]
+    fn seasonal(&self) -> usize {
+        self.seasonal.unwrap_or(7)
+    }
 }
 
 impl From<Error> for PyErr {
@@ -179,45 +184,45 @@ pub struct PySTLResult {
 #[pymethods]
 impl PySTLResult {
     #[getter]
-    fn seasonal(&self) -> Vec<f32> {
+    fn seasonal(&self) -> Vec<f64> {
         self.inner.seasonal().to_vec()
     }
 
     #[getter]
-    fn trend(&self) -> Vec<f32> {
+    fn trend(&self) -> Vec<f64> {
         self.inner.trend().to_vec()
     }
 
     #[getter]
-    fn remainder(&self) -> Vec<f32> {
+    fn remainder(&self) -> Vec<f64> {
         self.inner.remainder().to_vec()
     }
 
     #[getter]
-    fn resid(&self) -> Vec<f32> {
+    fn resid(&self) -> Vec<f64> {
         self.inner.remainder().to_vec()
     }
 
     #[getter]
-    fn weights(&self) -> Vec<f32> {
+    fn weights(&self) -> Vec<f64> {
         self.inner.weights().to_vec()
     }
 
-    fn seasonal_strength(&self) -> f32 {
+    fn seasonal_strength(&self) -> f64 {
         self.inner.seasonal_strength()
     }
 
-    fn trend_strength(&self) -> f32 {
+    fn trend_strength(&self) -> f64 {
         self.inner.trend_strength()
     }
 
     #[getter]
-    fn seasonal_component(&self) -> Vec<f32> {
+    fn seasonal_component(&self) -> Vec<f64> {
         self.inner.seasonal().to_vec()
     }
 
     #[getter]
-    fn trend_component(&self) -> Vec<f32> {
+    fn trend_component(&self) -> Vec<f64> {
         self.inner.trend().to_vec()
     }
 
@@ -227,7 +232,6 @@ impl PySTLResult {
     }
 }
 
-// Keep the existing MSTL classes unchanged
 #[pyclass]
 pub struct PyMstlResult {
     inner: MstlResult,
@@ -236,25 +240,25 @@ pub struct PyMstlResult {
 #[pymethods]
 impl PyMstlResult {
     #[getter]
-    fn seasonal(&self) -> Vec<Vec<f32>> {
+    fn seasonal(&self) -> Vec<Vec<f64>> {
         self.inner.seasonal().iter().map(|s| s.to_vec()).collect()
     }
 
     #[getter]
-    fn trend(&self) -> Vec<f32> {
+    fn trend(&self) -> Vec<f64> {
         self.inner.trend().to_vec()
     }
 
     #[getter]
-    fn remainder(&self) -> Vec<f32> {
+    fn remainder(&self) -> Vec<f64> {
         self.inner.remainder().to_vec()
     }
 
-    fn seasonal_strength(&self) -> Vec<f32> {
+    fn seasonal_strength(&self) -> Vec<f64> {
         self.inner.seasonal_strength()
     }
 
-    fn trend_strength(&self) -> f32 {
+    fn trend_strength(&self) -> f64 {
         self.inner.trend_strength()
     }
 }
@@ -288,20 +292,20 @@ impl PyStlParams {
         Ok(())
     }
 
-    fn fit(&self, series: Vec<f32>, period: usize) -> PyResult<PySTLResult> {
+    fn fit(&self, series: Vec<f64>, period: usize) -> PyResult<PySTLResult> {
         let result = self.inner.fit(&series, period)?;
         Ok(PySTLResult { inner: result })
     }
 }
 
 #[pyfunction]
-fn stl_decompose(series: Vec<f32>, period: usize) -> PyResult<PySTLResult> {
+fn stl_decompose(series: Vec<f64>, period: usize) -> PyResult<PySTLResult> {
     let result = Stl::fit(&series, period)?;
     Ok(PySTLResult { inner: result })
 }
 
 #[pyfunction]
-fn mstl_decompose(series: Vec<f32>, periods: Vec<usize>) -> PyResult<PyMstlResult> {
+fn mstl_decompose(series: Vec<f64>, periods: Vec<usize>) -> PyResult<PyMstlResult> {
     let result = Mstl::fit(&series, &periods)?;
     Ok(PyMstlResult { inner: result })
 }
@@ -316,4 +320,3 @@ fn stl_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mstl_decompose, m)?)?;
     Ok(())
 }
-

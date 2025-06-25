@@ -7,7 +7,7 @@
 #![allow(clippy::too_many_arguments)]
 
 pub fn stl(
-    y: &[f32],
+    y: &[f64],
     n: usize,
     np: usize,
     ns: usize,
@@ -21,9 +21,9 @@ pub fn stl(
     nljump: usize,
     ni: usize,
     no: usize,
-    rw: &mut [f32],
-    season: &mut [f32],
-    trend: &mut [f32],
+    rw: &mut [f64],
+    season: &mut [f64],
+    trend: &mut [f64],
 ) {
     let mut work1 = vec![0.0; n + 2 * np];
     let mut work2 = vec![0.0; n + 2 * np];
@@ -58,15 +58,15 @@ pub fn stl(
 }
 
 fn ess(
-    y: &[f32],
+    y: &[f64],
     n: usize,
     len: usize,
     ideg: i32,
     njump: usize,
     userw: bool,
-    rw: &[f32],
-    ys: &mut [f32],
-    res: &mut [f32],
+    rw: &[f64],
+    ys: &mut [f64],
+    res: &mut [f64],
 ) {
     if n < 2 {
         ys[0] = y[0];
@@ -87,7 +87,7 @@ fn ess(
                 n,
                 len,
                 ideg,
-                i as f32,
+                i as f64,
                 &mut ys[i - 1],
                 nleft,
                 nright,
@@ -116,7 +116,7 @@ fn ess(
                 n,
                 len,
                 ideg,
-                i as f32,
+                i as f64,
                 &mut ys[i - 1],
                 nleft,
                 nright,
@@ -149,7 +149,7 @@ fn ess(
                 n,
                 len,
                 ideg,
-                i as f32,
+                i as f64,
                 &mut ys[i - 1],
                 nleft,
                 nright,
@@ -167,9 +167,9 @@ fn ess(
     if newnj != 1 {
         let mut i = 1;
         while i <= n - newnj {
-            let delta = (ys[i + newnj - 1] - ys[i - 1]) / (newnj as f32);
+            let delta = (ys[i + newnj - 1] - ys[i - 1]) / (newnj as f64);
             for j in i + 1..=i + newnj - 1 {
-                ys[j - 1] = ys[i - 1] + delta * ((j - i) as f32);
+                ys[j - 1] = ys[i - 1] + delta * ((j - i) as f64);
             }
             i += newnj;
         }
@@ -180,7 +180,7 @@ fn ess(
                 n,
                 len,
                 ideg,
-                n as f32,
+                n as f64,
                 &mut ys[n - 1],
                 nleft,
                 nright,
@@ -192,9 +192,9 @@ fn ess(
                 ys[n - 1] = y[n - 1];
             }
             if k != n - 1 {
-                let delta = (ys[n - 1] - ys[k - 1]) / ((n - k) as f32);
+                let delta = (ys[n - 1] - ys[k - 1]) / ((n - k) as f64);
                 for j in k + 1..=n - 1 {
-                    ys[j - 1] = ys[k - 1] + delta * ((j - k) as f32);
+                    ys[j - 1] = ys[k - 1] + delta * ((j - k) as f64);
                 }
             }
         }
@@ -202,23 +202,23 @@ fn ess(
 }
 
 fn est(
-    y: &[f32],
+    y: &[f64],
     n: usize,
     len: usize,
     ideg: i32,
-    xs: f32,
-    ys: &mut f32,
+    xs: f64,
+    ys: &mut f64,
     nleft: usize,
     nright: usize,
-    w: &mut [f32],
+    w: &mut [f64],
     userw: bool,
-    rw: &[f32],
+    rw: &[f64],
 ) -> bool {
-    let range = (n as f32) - 1.0;
-    let mut h = (xs - (nleft as f32)).max((nright as f32) - xs);
+    let range = (n as f64) - 1.0;
+    let mut h = (xs - (nleft as f64)).max((nright as f64) - xs);
 
     if len > n {
-        h += ((len - n) / 2) as f32;
+        h += ((len - n) / 2) as f64;
     }
 
     let h9 = 0.999 * h;
@@ -228,7 +228,7 @@ fn est(
     let mut a = 0.0;
     for j in nleft..=nright {
         w[j - 1] = 0.0;
-        let r = ((j as f32) - xs).abs();
+        let r = ((j as f64) - xs).abs();
         if r <= h9 {
             if r <= h1 {
                 w[j - 1] = 1.0;
@@ -256,19 +256,19 @@ fn est(
             let mut a = 0.0;
             for j in nleft..=nright {
                 // weighted center of x values
-                a += w[j - 1] * (j as f32);
+                a += w[j - 1] * (j as f64);
             }
             let mut b = xs - a;
             let mut c = 0.0;
             for j in nleft..=nright {
-                c += w[j - 1] * ((j as f32) - a).powi(2);
+                c += w[j - 1] * ((j as f64) - a).powi(2);
             }
             if c.sqrt() > 0.001 * range {
                 b /= c;
 
                 // points are spread out enough to compute slope
                 for j in nleft..=nright {
-                    w[j - 1] *= b * ((j as f32) - a) + 1.0;
+                    w[j - 1] *= b * ((j as f64) - a) + 1.0;
                 }
             }
         }
@@ -282,18 +282,18 @@ fn est(
     }
 }
 
-fn fts(x: &[f32], n: usize, np: usize, trend: &mut [f32], work: &mut [f32]) {
+fn fts(x: &[f64], n: usize, np: usize, trend: &mut [f64], work: &mut [f64]) {
     ma(x, n, np, trend);
     ma(trend, n - np + 1, np, work);
     ma(work, n - 2 * np + 2, 3, trend);
 }
 
-fn ma(x: &[f32], n: usize, len: usize, ave: &mut [f32]) {
+fn ma(x: &[f64], n: usize, len: usize, ave: &mut [f64]) {
     let newn = n - len + 1;
-    let flen = len as f32;
+    let flen = len as f64;
 
     // get the first average
-    let mut v: f32 = x.iter().take(len).sum();
+    let mut v: f64 = x.iter().take(len).sum();
     ave[0] = v / flen;
 
     if newn > 1 {
@@ -308,7 +308,7 @@ fn ma(x: &[f32], n: usize, len: usize, ave: &mut [f32]) {
 }
 
 fn onestp(
-    y: &[f32],
+    y: &[f64],
     n: usize,
     np: usize,
     ns: usize,
@@ -322,14 +322,14 @@ fn onestp(
     nljump: usize,
     ni: usize,
     userw: bool,
-    rw: &mut [f32],
-    season: &mut [f32],
-    trend: &mut [f32],
-    work1: &mut [f32],
-    work2: &mut [f32],
-    work3: &mut [f32],
-    work4: &mut [f32],
-    work5: &mut [f32],
+    rw: &mut [f64],
+    season: &mut [f64],
+    trend: &mut [f64],
+    work1: &mut [f64],
+    work2: &mut [f64],
+    work3: &mut [f64],
+    work4: &mut [f64],
+    work5: &mut [f64],
 ) {
     for _ in 0..ni {
         for i in 0..n {
@@ -351,7 +351,7 @@ fn onestp(
     }
 }
 
-fn rwts(y: &[f32], n: usize, fit: &[f32], rw: &mut [f32]) {
+fn rwts(y: &[f64], n: usize, fit: &[f64], rw: &mut [f64]) {
     for i in 0..n {
         rw[i] = (y[i] - fit[i]).abs();
     }
@@ -378,19 +378,19 @@ fn rwts(y: &[f32], n: usize, fit: &[f32], rw: &mut [f32]) {
 }
 
 fn ss(
-    y: &[f32],
+    y: &[f64],
     n: usize,
     np: usize,
     ns: usize,
     isdeg: i32,
     nsjump: usize,
     userw: bool,
-    rw: &[f32],
-    season: &mut [f32],
-    work1: &mut [f32],
-    work2: &mut [f32],
-    work3: &mut [f32],
-    work4: &mut [f32],
+    rw: &[f64],
+    season: &mut [f64],
+    work1: &mut [f64],
+    work2: &mut [f64],
+    work3: &mut [f64],
+    work4: &mut [f64],
 ) {
     for j in 1..=np {
         let k = (n - j) / np + 1;
@@ -432,7 +432,7 @@ fn ss(
         if !ok {
             work2[0] = work2[1];
         }
-        xs = (k + 1) as f32;
+        xs = (k + 1) as f64;
         let nleft = 1.max(k as i32 - ns as i32 + 1) as usize;
         let ok = est(
             work1,
